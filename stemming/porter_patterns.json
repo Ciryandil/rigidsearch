@@ -1,0 +1,56 @@
+{
+  "1a": [
+    {
+      "suffix_pattern": "sses",
+      "suffix_result": "ss"
+    },
+    {
+      "suffix_pattern": "ies",
+      "suffix_result": "i"
+    },
+    {
+      "suffix_pattern": "ss",
+      "suffix_result": "s"
+    },
+    {
+      "suffix_pattern": "s",
+      "suffix_result": ""
+    }
+  ],
+  "1b": [
+    {
+      "suffix_pattern": "eed",
+      "prefix_pattern": "m > 0",
+      "suffix_result": "ee"
+    },
+    {
+      "suffix_pattern": "ed",
+      "prefix_pattern": "v",
+      "suffix_result": "",
+      "followup_rule": "1b_1"
+    },
+    {
+      "suffix_pattern": "ing",
+      "prefix_pattern": "v",
+      "suffix_result": "",
+      "followup_rule": "1b_1"
+    }
+  ],
+  "1b_1": [
+    {
+      "suffix_pattern": "at",
+      "suffix_result": "ate"
+    },
+    {
+      "suffix_pattern": "bl",
+      "suffix_result": "ble"
+    },
+    {
+      "suffix_pattern": "iz",
+      "suffix_result": "ize"
+    },
+    {
+      "prefix_pattern": "d AND NOT(ends_l OR ends_s OR ends_z)"
+    }
+  ]
+}
