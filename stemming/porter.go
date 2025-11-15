@@ -145,9 +145,17 @@ func porterStemmerStep1b(word string) string {
 	return convertedWord
 }
 
-func PorterStemmer(word string) string {
+func porterStemmerStep1c(word string) string {
+	if strings.HasSuffix(word, "y") && containsVowel(word[:len(word)-1]) {
+		return word[:len(word)-1] + "i"
+	}
+	return word
+}
+
+func PorterStemmer(word string) (stem string) {
 	word = porterStemmerStep1a(word)
 	word = porterStemmerStep1b(word)
+	word = porterStemmerStep1c(word)
 	// further to do
 	return word
 }
