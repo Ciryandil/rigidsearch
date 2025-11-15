@@ -145,6 +145,9 @@ func porterStemmerStep1b(word string) string {
 	return convertedWord
 }
 
-func PorterStemmer(word string) (stem string) {
+func PorterStemmer(word string) string {
 	word = porterStemmerStep1a(word)
+	word = porterStemmerStep1b(word)
+	// further to do
+	return word
 }
