@@ -11,10 +11,16 @@ import (
 
 var GlobalSearchIndex SearchIndex
 
+type WordFrequencyData struct {
+	FrequencyMap   map[string]int
+	TotalFrequency int
+}
+
 type SearchIndex struct {
-	WordFrequencyMap map[string]map[string]int
+	WordFrequencyMap map[string]*WordFrequencyData
 	WordToDocMap     map[string][]string
 	DocMetadataMap   map[string]data_models.Document
+	TotalDocs        int
 }
 
 type IndexData struct {
@@ -44,10 +50,19 @@ func LoadIndex() error {
 		return fmt.Errorf("error loading index file, word and their frequencies don't match in lengths")
 	}
 	for itr := range indexData.Words {
-		GlobalSearchIndex.WordFrequencyMap[indexData.Words[itr]] = indexData.WordFrequencies[itr]
+		frequencyData := WordFrequencyData{
+			FrequencyMap:   make(map[string]int),
+			TotalFrequency: 0,
+		}
+		for doc, freq := range indexData.WordFrequencies[itr] {
+			frequencyData.FrequencyMap[doc] = freq
+			frequencyData.TotalFrequency += freq
+		}
+		GlobalSearchIndex.WordFrequencyMap[indexData.Words[itr]] = &frequencyData
 		GlobalSearchIndex.WordToDocMap[indexData.Words[itr]] = indexData.DocLists[itr]
 	}
 	GlobalSearchIndex.DocMetadataMap = indexData.DocMetadataMap
+	GlobalSearchIndex.TotalDocs = len(indexData.DocMetadataMap)
 	return nil
 }
 
@@ -59,7 +74,7 @@ func StoreIndex() error {
 	}
 	for _, word := range wordList {
 		indexData.Words = append(indexData.Words, word)
-		indexData.WordFrequencies = append(indexData.WordFrequencies, GlobalSearchIndex.WordFrequencyMap[word])
+		indexData.WordFrequencies = append(indexData.WordFrequencies, GlobalSearchIndex.WordFrequencyMap[word].FrequencyMap)
 		indexData.DocLists = append(indexData.DocLists, GlobalSearchIndex.WordToDocMap[word])
 	}
 	indexData.DocMetadataMap = GlobalSearchIndex.DocMetadataMap

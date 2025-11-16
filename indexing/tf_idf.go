@@ -26,17 +26,25 @@ func ConstructTermFrequencyMap(text string) map[string]int {
 	return freqCount
 }
 
-func IndexDocument(document data_models.Document) error {
+func IndexDocument(document data_models.Document) (string, error) {
 	termFrequencyMap := ConstructTermFrequencyMap(document.Text)
 	docId := uuid.NewString()
 	err := os.WriteFile(fmt.Sprintf("%s/%s", constants.STORAGE_LOC, docId), []byte(document.Text), 0644)
 	if err != nil {
-		return err
+		return "", err
 	}
 	for word, freq := range termFrequencyMap {
-		GlobalSearchIndex.WordFrequencyMap[word][docId] = freq
+		if _, ok := GlobalSearchIndex.WordFrequencyMap[word]; !ok {
+			GlobalSearchIndex.WordFrequencyMap[word] = &WordFrequencyData{
+				FrequencyMap:   make(map[string]int),
+				TotalFrequency: 0,
+			}
+		}
+		GlobalSearchIndex.WordFrequencyMap[word].FrequencyMap[docId] = freq
+		GlobalSearchIndex.WordFrequencyMap[word].TotalFrequency += freq
 		GlobalSearchIndex.WordToDocMap[word] = append(GlobalSearchIndex.WordToDocMap[word], docId)
 	}
 	GlobalSearchIndex.DocMetadataMap[docId] = document
-	return nil
+	GlobalSearchIndex.TotalDocs += 1
+	return docId, nil
 }
