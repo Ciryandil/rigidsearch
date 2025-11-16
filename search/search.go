@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"rigidsearch/data_models"
+	"rigidsearch/heap"
 	"rigidsearch/indexing"
 	"rigidsearch/stemming"
 	"rigidsearch/stop_words"
@@ -19,7 +20,7 @@ func Search(query data_models.Query) ([]data_models.SearchResult, error) {
 		}
 	}
 	if len(finalQueryTerms) == 0 {
-		return nil, fmt.Errorf("All terms in query were stop words! Use non stop words")
+		return nil, fmt.Errorf("all terms in query were stop words! Use non stop words")
 	}
 	if query.NumResults == 0 {
 		query.NumResults = 5
@@ -45,5 +46,15 @@ func Search(query data_models.Query) ([]data_models.SearchResult, error) {
 	for docId, score := range docsMap {
 		resultArr = append(resultArr, data_models.IntermediateResult{DocId: docId, Score: score})
 	}
-
+	heap.Heapify(resultArr, data_models.IntermediateResultComparator)
+	topResults := make([]data_models.SearchResult, 0)
+	for itr := 0; itr < query.NumResults; itr += 1 {
+		resPtr := heap.Pop(resultArr, data_models.IntermediateResultComparator)
+		if resPtr == nil {
+			break
+		}
+		docData := indexing.GlobalSearchIndex.DocMetadataMap[resPtr.DocId]
+		topResults = append(topResults, data_models.SearchResult{DocId: docData.Id, Name: docData.Name, Score: resPtr.Score})
+	}
+	return topResults, nil
 }
