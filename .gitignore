@@ -1,0 +1,29 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go build output
+bin/
+build/
+
+# Vendor directory (optional, if you donâ€™t commit it)
+vendor/
+
+# IDE / Editor settings
+.vscode/
+.idea/
+*.swp
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+.env
+
+# Project-Specific files
+rigidsearch_index.json
+doc_storage/
