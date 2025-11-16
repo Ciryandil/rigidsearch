@@ -1,10 +1,16 @@
 package indexing
 
 import (
+	"fmt"
+	"os"
+	"rigidsearch/constants"
+	"rigidsearch/data_models"
 	"rigidsearch/stemming"
 	"rigidsearch/stop_words"
 	"rigidsearch/string_utils"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 func ConstructTermFrequencyMap(text string) map[string]int {
@@ -18,4 +24,19 @@ func ConstructTermFrequencyMap(text string) map[string]int {
 		}
 	}
 	return freqCount
+}
+
+func IndexDocument(document data_models.Document) error {
+	termFrequencyMap := ConstructTermFrequencyMap(document.Text)
+	docId := uuid.NewString()
+	err := os.WriteFile(fmt.Sprintf("%s/%s", constants.STORAGE_LOC, docId), []byte(document.Text), 0644)
+	if err != nil {
+		return err
+	}
+	for word, freq := range termFrequencyMap {
+		GlobalSearchIndex.WordFrequencyMap[word][docId] = freq
+		GlobalSearchIndex.WordToDocMap[word] = append(GlobalSearchIndex.WordToDocMap[word], docId)
+	}
+	GlobalSearchIndex.DocMetadataMap[docId] = document
+	return nil
 }
