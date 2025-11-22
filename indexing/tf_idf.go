@@ -27,6 +27,8 @@ func ConstructTermFrequencyMap(text string) map[string]int {
 }
 
 func IndexDocument(document data_models.Document) (string, error) {
+	GlobalSearchIndex.Lock.Lock()
+	defer GlobalSearchIndex.Lock.Unlock()
 	termFrequencyMap := ConstructTermFrequencyMap(document.Text)
 	docId := uuid.NewString()
 	err := os.WriteFile(fmt.Sprintf("%s/%s", constants.STORAGE_LOC, docId), []byte(document.Text), 0644)
@@ -42,9 +44,49 @@ func IndexDocument(document data_models.Document) (string, error) {
 		}
 		GlobalSearchIndex.WordFrequencyMap[word].FrequencyMap[docId] = freq
 		GlobalSearchIndex.WordFrequencyMap[word].TotalFrequency += freq
-		GlobalSearchIndex.WordToDocMap[word] = append(GlobalSearchIndex.WordToDocMap[word], docId)
+		freqData := GlobalSearchIndex.WordToDocMap[word]
+		if freqData == nil {
+			freqData = &DocFrequencyData{
+				DocSet:    make(map[string]struct{}),
+				TotalDocs: 0,
+			}
+		}
+		freqData.DocSet[docId] = struct{}{}
+		freqData.TotalDocs += 1
 	}
 	GlobalSearchIndex.DocMetadataMap[docId] = document
 	GlobalSearchIndex.TotalDocs += 1
 	return docId, nil
+}
+
+func DeleteDocument(documentId string) error {
+	GlobalSearchIndex.Lock.Lock()
+	defer GlobalSearchIndex.Lock.Unlock()
+	words := GlobalSearchIndex.DocToWordMap[documentId]
+	delete(GlobalSearchIndex.DocToWordMap, documentId)
+	for _, word := range words {
+		freqData := GlobalSearchIndex.WordFrequencyMap[word]
+		if freqData != nil {
+			count := freqData.FrequencyMap[documentId]
+			delete(freqData.FrequencyMap, documentId)
+			freqData.TotalFrequency -= count
+		}
+		docFreqData := GlobalSearchIndex.WordToDocMap[word]
+		if docFreqData != nil {
+			if _, ok := docFreqData.DocSet[documentId]; ok {
+				delete(docFreqData.DocSet, documentId)
+				docFreqData.TotalDocs -= 1
+			}
+		}
+	}
+	delete(GlobalSearchIndex.DocToWordMap, documentId)
+	if _, ok := GlobalSearchIndex.DocMetadataMap[documentId]; ok {
+		delete(GlobalSearchIndex.DocMetadataMap, documentId)
+		GlobalSearchIndex.TotalDocs -= 1
+	}
+	err := os.Remove(fmt.Sprintf("%s/%s", constants.STORAGE_LOC, documentId))
+	if err != nil {
+		return err
+	}
+	return nil
 }

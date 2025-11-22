@@ -27,12 +27,19 @@ func Search(query data_models.Query) ([]data_models.SearchResult, error) {
 	}
 	idfDenom := float64(1 + indexing.GlobalSearchIndex.TotalDocs)
 	docsMap := make(map[string]float64)
+	indexing.GlobalSearchIndex.Lock.RLock()
+	defer indexing.GlobalSearchIndex.Lock.RUnlock()
 	for _, term := range finalQueryTerms {
 		freqData, ok := indexing.GlobalSearchIndex.WordFrequencyMap[term]
 		if !ok {
 			continue
 		}
-		inverseDocFrequency := float64(len(indexing.GlobalSearchIndex.WordToDocMap[term]))/idfDenom + 1
+		var docFreq int
+		docFreqData := indexing.GlobalSearchIndex.WordToDocMap[term]
+		if docFreqData != nil {
+			docFreq = docFreqData.TotalDocs
+		}
+		inverseDocFrequency := float64(docFreq)/idfDenom + 1
 		inverseDocFrequency = math.Log(inverseDocFrequency)
 		tfDenom := float64(freqData.TotalFrequency)
 		for docId, freq := range freqData.FrequencyMap {
