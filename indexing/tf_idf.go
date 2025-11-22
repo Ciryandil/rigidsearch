@@ -31,7 +31,12 @@ func IndexDocument(document data_models.Document) (string, error) {
 	defer GlobalSearchIndex.Lock.Unlock()
 	termFrequencyMap := ConstructTermFrequencyMap(document.Text)
 	docId := uuid.NewString()
-	err := os.WriteFile(fmt.Sprintf("%s/%s", constants.STORAGE_LOC, docId), []byte(document.Text), 0644)
+	f, err := os.OpenFile(fmt.Sprintf("%s/%s", constants.STORAGE_LOC, docId), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	_, err = f.Write([]byte(document.Text))
 	if err != nil {
 		return "", err
 	}

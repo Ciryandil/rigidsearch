@@ -1,8 +1,8 @@
 package data_models
 
 type Document struct {
-	Name string
-	Text string
+	Name string `json:"name"`
+	Text string `json:"text"`
 	Id   string
 }
 

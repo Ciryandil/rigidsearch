@@ -114,6 +114,11 @@ func StoreIndex() error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(constants.INDEX_FILE, bytes, 0644)
+	f, err := os.OpenFile(constants.INDEX_FILE, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write(bytes)
 	return err
 }
