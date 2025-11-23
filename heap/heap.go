@@ -54,20 +54,20 @@ func Push[T any](heap []T, element T, comparator func(T, T) bool) {
 	Float(heap, len(heap)-1, comparator)
 }
 
-func Pop[T any](heap []T, comparator func(T, T) bool) *T {
+func Pop[T any](heap []T, comparator func(T, T) bool) (*T, []T) {
 	if len(heap) == 0 {
-		return nil
+		return nil, heap
 	}
 	if len(heap) == 1 {
 		res := heap[0]
 		resPtr := &res
 		heap = nil
-		return resPtr
+		return resPtr, heap
 	}
 	res := heap[0]
 	resPtr := &res
 	Swap(heap, 0, len(heap)-1)
 	heap = heap[:len(heap)-1]
 	Sink(heap, 0, comparator)
-	return resPtr
+	return resPtr, heap
 }

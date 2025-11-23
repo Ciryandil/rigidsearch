@@ -40,23 +40,29 @@ func Search(query data_models.Query) ([]data_models.SearchResult, error) {
 			docFreq = docFreqData.TotalDocs
 		}
 		inverseDocFrequency := float64(docFreq)/idfDenom + 1
+		fmt.Println("Term: ", term, " idf before log: ", inverseDocFrequency)
 		inverseDocFrequency = math.Log(inverseDocFrequency)
 		tfDenom := float64(freqData.TotalFrequency)
 		for docId, freq := range freqData.FrequencyMap {
 			termFreq := float64(freq) / tfDenom
 			score := termFreq * inverseDocFrequency
+			fmt.Println("Term: ", term, " score: ", score)
+
 			docsMap[docId] += score
 		}
 	}
 
 	resultArr := make([]data_models.IntermediateResult, 0)
 	for docId, score := range docsMap {
+		fmt.Println("Doc id: ", docId, " score: ", score)
 		resultArr = append(resultArr, data_models.IntermediateResult{DocId: docId, Score: score})
 	}
 	heap.Heapify(resultArr, data_models.IntermediateResultComparator)
 	topResults := make([]data_models.SearchResult, 0)
 	for itr := 0; itr < query.NumResults; itr += 1 {
-		resPtr := heap.Pop(resultArr, data_models.IntermediateResultComparator)
+		fmt.Printf("Current heap: %v\n", resultArr)
+		var resPtr *data_models.IntermediateResult
+		resPtr, resultArr = heap.Pop(resultArr, data_models.IntermediateResultComparator)
 		if resPtr == nil {
 			break
 		}
