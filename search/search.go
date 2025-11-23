@@ -12,7 +12,7 @@ import (
 )
 
 func Search(query data_models.Query) ([]data_models.SearchResult, error) {
-	queryTerms := strings.Split(query.Query, " ")
+	queryTerms := strings.Fields(query.Query)
 	finalQueryTerms := make([]string, 0)
 	for _, term := range queryTerms {
 		if _, ok := stop_words.STOP_WORDS[term]; !ok {

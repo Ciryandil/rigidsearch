@@ -14,7 +14,7 @@ import (
 )
 
 func ConstructTermFrequencyMap(text string) map[string]int {
-	words := strings.Split(text, " ")
+	words := strings.Fields(text)
 	freqCount := make(map[string]int)
 	for _, word := range words {
 		cleanedWord := string_utils.CleanWord(word)
