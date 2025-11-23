@@ -33,6 +33,10 @@ func NewRouter() http.Handler {
 		q := r.URL.Query()
 		query := q.Get("query")
 		numResultsStr := q.Get("num_results")
+		method := q.Get("method")
+		if method == "" {
+			method = "tf_idf"
+		}
 		numResults, err := strconv.Atoi(numResultsStr)
 		if err != nil {
 			numResults = 0
@@ -41,7 +45,12 @@ func NewRouter() http.Handler {
 			Query:      query,
 			NumResults: numResults,
 		}
-		results, err := search.Search(queryStruct)
+		var results []data_models.SearchResult
+		if method == "bm_25" {
+			results, err = search.Bm25Search(queryStruct)
+		} else {
+			results, err = search.TfIdfSearch(queryStruct)
+		}
 		if err != nil {
 			returnError(w, err, http.StatusInternalServerError)
 			return
