@@ -26,20 +26,20 @@ type SearchIndex struct {
 	WordFrequencyMap map[string]*WordFrequencyData
 	WordToDocMap     map[string]*DocFrequencyData
 	DocToWordMap     map[string][]string
-	DocMetadataMap   map[string]data_models.Document
+	DocMetadataMap   map[string]data_models.DocumentMetadata
 }
 
 type IndexData struct {
-	Words           []string                        `json:"words"`
-	WordFrequencies []map[string]int                `json:"word_frequencies"`
-	DocLists        [][]string                      `json:"doc_lists"`
-	DocMetadataMap  map[string]data_models.Document `json:"doc_metadata_map"`
+	Words           []string                                `json:"words"`
+	WordFrequencies []map[string]int                        `json:"word_frequencies"`
+	DocLists        [][]string                              `json:"doc_lists"`
+	DocMetadataMap  map[string]data_models.DocumentMetadata `json:"doc_metadata_map"`
 }
 
 func LoadIndex() error {
 	GlobalSearchIndex.Lock.Lock()
 	defer GlobalSearchIndex.Lock.Unlock()
-	GlobalSearchIndex.DocMetadataMap = make(map[string]data_models.Document)
+	GlobalSearchIndex.DocMetadataMap = make(map[string]data_models.DocumentMetadata)
 	GlobalSearchIndex.DocToWordMap = make(map[string][]string)
 	GlobalSearchIndex.WordFrequencyMap = make(map[string]*WordFrequencyData)
 	GlobalSearchIndex.WordToDocMap = make(map[string]*DocFrequencyData)
@@ -50,7 +50,7 @@ func LoadIndex() error {
 		}
 	}
 	if errors.Is(err, os.ErrNotExist) {
-		GlobalSearchIndex.DocMetadataMap = make(map[string]data_models.Document)
+		GlobalSearchIndex.DocMetadataMap = make(map[string]data_models.DocumentMetadata)
 		return nil
 	}
 	var indexData IndexData

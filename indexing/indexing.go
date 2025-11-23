@@ -63,7 +63,11 @@ func IndexDocument(document data_models.Document) (string, error) {
 	}
 	document.Id = docId
 	document.Length = docLength
-	GlobalSearchIndex.DocMetadataMap[docId] = document
+	GlobalSearchIndex.DocMetadataMap[docId] = data_models.DocumentMetadata{
+		Id:     document.Id,
+		Name:   document.Name,
+		Length: document.Length,
+	}
 	return docId, nil
 }
 

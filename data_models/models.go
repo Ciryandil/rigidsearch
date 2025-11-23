@@ -7,6 +7,12 @@ type Document struct {
 	Length int    `json:"length"`
 }
 
+type DocumentMetadata struct {
+	Name   string `json:"name"`
+	Id     string `json:"id"`
+	Length int    `json:"length"`
+}
+
 type Query struct {
 	Query      string
 	NumResults int
