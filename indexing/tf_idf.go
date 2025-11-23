@@ -40,7 +40,9 @@ func IndexDocument(document data_models.Document) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	docLength := 0
 	for word, freq := range termFrequencyMap {
+		docLength += freq
 		GlobalSearchIndex.DocToWordMap[docId] = append(GlobalSearchIndex.DocToWordMap[docId], word)
 		if _, ok := GlobalSearchIndex.WordFrequencyMap[word]; !ok {
 			GlobalSearchIndex.WordFrequencyMap[word] = &WordFrequencyData{
@@ -53,17 +55,15 @@ func IndexDocument(document data_models.Document) (string, error) {
 		freqData := GlobalSearchIndex.WordToDocMap[word]
 		if freqData == nil {
 			freqData = &DocFrequencyData{
-				DocSet:    make(map[string]struct{}),
-				TotalDocs: 0,
+				DocSet: make(map[string]struct{}),
 			}
 		}
 		freqData.DocSet[docId] = struct{}{}
-		freqData.TotalDocs += 1
 		GlobalSearchIndex.WordToDocMap[word] = freqData
 	}
 	document.Id = docId
+	document.Length = docLength
 	GlobalSearchIndex.DocMetadataMap[docId] = document
-	GlobalSearchIndex.TotalDocs += 1
 	return docId, nil
 }
 
@@ -78,30 +78,21 @@ func DeleteDocument(documentId string) error {
 			count := freqData.FrequencyMap[documentId]
 			delete(freqData.FrequencyMap, documentId)
 			freqData.TotalFrequency -= count
-			if freqData.TotalFrequency == 0 {
+			if len(freqData.FrequencyMap) == 0 {
 				delete(GlobalSearchIndex.WordFrequencyMap, word)
 			}
 			fmt.Println("Word: ", word, " after deletion freq data: ", freqData.FrequencyMap)
 		}
 		docFreqData := GlobalSearchIndex.WordToDocMap[word]
 		if docFreqData != nil {
-			if _, ok := docFreqData.DocSet[documentId]; ok {
-				delete(docFreqData.DocSet, documentId)
-				docFreqData.TotalDocs -= 1
-			}
-			if docFreqData.TotalDocs == 0 {
-				delete(GlobalSearchIndex.WordToDocMap, word)
-			}
+			delete(docFreqData.DocSet, documentId)
+			delete(GlobalSearchIndex.WordToDocMap, word)
 		}
 	}
 	delete(GlobalSearchIndex.DocToWordMap, documentId)
-	if _, ok := GlobalSearchIndex.DocMetadataMap[documentId]; ok {
-		delete(GlobalSearchIndex.DocMetadataMap, documentId)
-		GlobalSearchIndex.TotalDocs -= 1
-	}
+	delete(GlobalSearchIndex.DocMetadataMap, documentId)
+
 	err := os.Remove(fmt.Sprintf("%s/%s", constants.STORAGE_LOC, documentId))
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
+
 }

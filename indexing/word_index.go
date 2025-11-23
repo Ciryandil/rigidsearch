@@ -18,8 +18,7 @@ type WordFrequencyData struct {
 }
 
 type DocFrequencyData struct {
-	DocSet    map[string]struct{}
-	TotalDocs int
+	DocSet map[string]struct{}
 }
 
 type SearchIndex struct {
@@ -28,7 +27,6 @@ type SearchIndex struct {
 	WordToDocMap     map[string]*DocFrequencyData
 	DocToWordMap     map[string][]string
 	DocMetadataMap   map[string]data_models.Document
-	TotalDocs        int
 }
 
 type IndexData struct {
@@ -69,8 +67,7 @@ func LoadIndex() error {
 			TotalFrequency: 0,
 		}
 		docFrequencyData := DocFrequencyData{
-			DocSet:    make(map[string]struct{}),
-			TotalDocs: 0,
+			DocSet: make(map[string]struct{}),
 		}
 		for doc, freq := range indexData.WordFrequencies[itr] {
 			frequencyData.FrequencyMap[doc] = freq
@@ -79,13 +76,11 @@ func LoadIndex() error {
 		}
 		for _, doc := range indexData.DocLists[itr] {
 			docFrequencyData.DocSet[doc] = struct{}{}
-			docFrequencyData.TotalDocs += 1
 		}
 		GlobalSearchIndex.WordFrequencyMap[indexData.Words[itr]] = &frequencyData
 		GlobalSearchIndex.WordToDocMap[indexData.Words[itr]] = &docFrequencyData
 	}
 	GlobalSearchIndex.DocMetadataMap = indexData.DocMetadataMap
-	GlobalSearchIndex.TotalDocs = len(indexData.DocMetadataMap)
 	return nil
 }
 
