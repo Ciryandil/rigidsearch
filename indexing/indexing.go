@@ -9,8 +9,6 @@ import (
 	"rigidsearch/stop_words"
 	"rigidsearch/string_utils"
 	"strings"
-
-	"github.com/google/uuid"
 )
 
 func ConstructTermFrequencyMap(text string) map[string]int {
@@ -26,44 +24,49 @@ func ConstructTermFrequencyMap(text string) map[string]int {
 	return freqCount
 }
 
-func IndexDocument(document data_models.Document) (string, error) {
+func IndexDocument(document data_models.Document) (int32, error) {
 	GlobalSearchIndex.Lock.Lock()
 	defer GlobalSearchIndex.Lock.Unlock()
 	termFrequencyMap := ConstructTermFrequencyMap(document.Text)
-	docId := uuid.NewString()
-	f, err := os.OpenFile(fmt.Sprintf("%s/%s", constants.STORAGE_LOC, docId), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	docId := int32(len(GlobalSearchIndex.Index.DocMetadataMap))
+	f, err := os.OpenFile(fmt.Sprintf("%s/%d", constants.STORAGE_LOC, docId), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		return "", err
+		return -1, err
 	}
 	defer f.Close()
 	_, err = f.Write([]byte(document.Text))
 	if err != nil {
-		return "", err
+		return -1, err
 	}
-	docLength := 0
 	for word, freq := range termFrequencyMap {
-		docLength += freq
-		GlobalSearchIndex.DocToWordMap[docId] = append(GlobalSearchIndex.DocToWordMap[docId], word)
-		if _, ok := GlobalSearchIndex.WordFrequencyMap[word]; !ok {
-			GlobalSearchIndex.WordFrequencyMap[word] = &WordFrequencyData{
-				FrequencyMap:   make(map[string]int),
-				TotalFrequency: 0,
+		document.Length += int32(freq)
+		index, ok := GlobalSearchIndex.Index.TermIndex[word]
+		if !ok {
+			totalTerms := len(GlobalSearchIndex.Index.TermIndex)
+			GlobalSearchIndex.Index.TermIndex[word] = int32(totalTerms)
+			termInfo := TermInfo{
+				Postings: []Posting{
+					Posting{
+						DocId: docId,
+						Tf:    int32(freq),
+					},
+				},
+				DocFrequency:   1,
+				TotalFrequency: int32(freq),
 			}
+			GlobalSearchIndex.Index.Terms = append(GlobalSearchIndex.Index.Terms, &termInfo)
+		} else {
+			termInfo := GlobalSearchIndex.Index.Terms[index]
+			termInfo.Postings = append(termInfo.Postings, Posting{
+				DocId: docId,
+				Tf:    int32(freq),
+			})
+			termInfo.DocFrequency += 1
+			termInfo.TotalFrequency += int32(freq)
 		}
-		GlobalSearchIndex.WordFrequencyMap[word].FrequencyMap[docId] = freq
-		GlobalSearchIndex.WordFrequencyMap[word].TotalFrequency += freq
-		freqData := GlobalSearchIndex.WordToDocMap[word]
-		if freqData == nil {
-			freqData = &DocFrequencyData{
-				DocSet: make(map[string]struct{}),
-			}
-		}
-		freqData.DocSet[docId] = struct{}{}
-		GlobalSearchIndex.WordToDocMap[word] = freqData
 	}
 	document.Id = docId
-	document.Length = docLength
-	GlobalSearchIndex.DocMetadataMap[docId] = data_models.DocumentMetadata{
+	GlobalSearchIndex.Index.DocMetadataMap[docId] = data_models.DocumentMetadata{
 		Id:     document.Id,
 		Name:   document.Name,
 		Length: document.Length,
@@ -71,32 +74,12 @@ func IndexDocument(document data_models.Document) (string, error) {
 	return docId, nil
 }
 
-func DeleteDocument(documentId string) error {
+func DeleteDocument(documentId int32) error {
 	GlobalSearchIndex.Lock.Lock()
 	defer GlobalSearchIndex.Lock.Unlock()
-	words := GlobalSearchIndex.DocToWordMap[documentId]
-	fmt.Println("Doc id: ", documentId)
-	for _, word := range words {
-		freqData := GlobalSearchIndex.WordFrequencyMap[word]
-		if freqData != nil {
-			count := freqData.FrequencyMap[documentId]
-			delete(freqData.FrequencyMap, documentId)
-			freqData.TotalFrequency -= count
-			if len(freqData.FrequencyMap) == 0 {
-				delete(GlobalSearchIndex.WordFrequencyMap, word)
-			}
-			fmt.Println("Word: ", word, " after deletion freq data: ", freqData.FrequencyMap)
-		}
-		docFreqData := GlobalSearchIndex.WordToDocMap[word]
-		if docFreqData != nil {
-			delete(docFreqData.DocSet, documentId)
-			delete(GlobalSearchIndex.WordToDocMap, word)
-		}
-	}
-	delete(GlobalSearchIndex.DocToWordMap, documentId)
-	delete(GlobalSearchIndex.DocMetadataMap, documentId)
+	GlobalSearchIndex.Index.DeletedDocs[documentId] = struct{}{}
 
-	err := os.Remove(fmt.Sprintf("%s/%s", constants.STORAGE_LOC, documentId))
+	err := os.Remove(fmt.Sprintf("%s/%d", constants.STORAGE_LOC, documentId))
 	return err
 
 }

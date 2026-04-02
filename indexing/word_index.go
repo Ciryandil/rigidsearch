@@ -10,39 +10,39 @@ import (
 	"sync"
 )
 
-var GlobalSearchIndex SearchIndex
-
-type WordFrequencyData struct {
-	FrequencyMap   map[string]int
-	TotalFrequency int
+type SynchronousIndex struct {
+	Index SearchIndex
+	Lock  sync.RWMutex
 }
 
-type DocFrequencyData struct {
-	DocSet map[string]struct{}
+var GlobalSearchIndex SynchronousIndex
+
+type Posting struct {
+	DocId int32
+	Tf    int32 // term frequency - frequency of word in doc of DocId
+}
+
+type TermInfo struct {
+	Postings       []Posting
+	DocFrequency   int32 // number of docs in which word appears
+	TotalFrequency int32 // total frequency of word across docs
 }
 
 type SearchIndex struct {
-	Lock             sync.RWMutex
-	WordFrequencyMap map[string]*WordFrequencyData
-	WordToDocMap     map[string]*DocFrequencyData
-	DocToWordMap     map[string][]string
-	DocMetadataMap   map[string]data_models.DocumentMetadata
-}
-
-type IndexData struct {
-	Words           []string                                `json:"words"`
-	WordFrequencies []map[string]int                        `json:"word_frequencies"`
-	DocLists        [][]string                              `json:"doc_lists"`
-	DocMetadataMap  map[string]data_models.DocumentMetadata `json:"doc_metadata_map"`
+	TermIndex      map[string]int32                       `json:"term_index"` // map from term to integer index of it in terms array
+	Terms          []*TermInfo                            `json:"terms"`      // array of terminfo
+	DocMetadataMap map[int32]data_models.DocumentMetadata `json:"doc_metadata_map"`
+	DeletedDocs    map[int32]struct{}                     `json:"deleted_docs"` // ids of docs that have been deleted - lazy deletion
 }
 
 func LoadIndex() error {
 	GlobalSearchIndex.Lock.Lock()
 	defer GlobalSearchIndex.Lock.Unlock()
-	GlobalSearchIndex.DocMetadataMap = make(map[string]data_models.DocumentMetadata)
-	GlobalSearchIndex.DocToWordMap = make(map[string][]string)
-	GlobalSearchIndex.WordFrequencyMap = make(map[string]*WordFrequencyData)
-	GlobalSearchIndex.WordToDocMap = make(map[string]*DocFrequencyData)
+	var index SearchIndex
+	index.DocMetadataMap = make(map[int32]data_models.DocumentMetadata)
+	index.Terms = nil
+	index.TermIndex = make(map[string]int32)
+	GlobalSearchIndex.Index = index
 	file, err := os.ReadFile(constants.INDEX_FILE)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -50,62 +50,26 @@ func LoadIndex() error {
 		}
 	}
 	if errors.Is(err, os.ErrNotExist) {
-		GlobalSearchIndex.DocMetadataMap = make(map[string]data_models.DocumentMetadata)
 		return nil
 	}
-	var indexData IndexData
-	err = json.Unmarshal(file, &indexData)
+	var storedIndex SearchIndex
+	err = json.Unmarshal(file, &storedIndex)
 	if err != nil {
 		return err
 	}
-	if len(indexData.Words) != len(indexData.WordFrequencies) || len(indexData.Words) != len(indexData.DocLists) {
+	if len(storedIndex.Terms) != len(storedIndex.TermIndex) {
 		return fmt.Errorf("error loading index file, word and their frequencies don't match in lengths")
 	}
-	for itr := range indexData.Words {
-		frequencyData := WordFrequencyData{
-			FrequencyMap:   make(map[string]int),
-			TotalFrequency: 0,
-		}
-		docFrequencyData := DocFrequencyData{
-			DocSet: make(map[string]struct{}),
-		}
-		for doc, freq := range indexData.WordFrequencies[itr] {
-			frequencyData.FrequencyMap[doc] = freq
-			frequencyData.TotalFrequency += freq
-			GlobalSearchIndex.DocToWordMap[doc] = append(GlobalSearchIndex.DocToWordMap[doc], indexData.Words[itr])
-		}
-		for _, doc := range indexData.DocLists[itr] {
-			docFrequencyData.DocSet[doc] = struct{}{}
-		}
-		GlobalSearchIndex.WordFrequencyMap[indexData.Words[itr]] = &frequencyData
-		GlobalSearchIndex.WordToDocMap[indexData.Words[itr]] = &docFrequencyData
-	}
-	GlobalSearchIndex.DocMetadataMap = indexData.DocMetadataMap
+
+	GlobalSearchIndex.Index = storedIndex
 	return nil
 }
 
 func StoreIndex() error {
 	GlobalSearchIndex.Lock.Lock()
 	defer GlobalSearchIndex.Lock.Unlock()
-	var indexData IndexData
-	var wordList []string
-	for word := range GlobalSearchIndex.WordFrequencyMap {
-		wordList = append(wordList, word)
-	}
-	for _, word := range wordList {
-		indexData.Words = append(indexData.Words, word)
-		indexData.WordFrequencies = append(indexData.WordFrequencies, GlobalSearchIndex.WordFrequencyMap[word].FrequencyMap)
-		docList := make([]string, 0)
-		freqData := GlobalSearchIndex.WordToDocMap[word]
-		if freqData != nil {
-			for docId := range freqData.DocSet {
-				docList = append(docList, docId)
-			}
-		}
-		indexData.DocLists = append(indexData.DocLists, docList)
-	}
-	indexData.DocMetadataMap = GlobalSearchIndex.DocMetadataMap
-	bytes, err := json.Marshal(indexData)
+
+	bytes, err := json.Marshal(GlobalSearchIndex.Index)
 	if err != nil {
 		return err
 	}

@@ -3,14 +3,14 @@ package data_models
 type Document struct {
 	Name   string `json:"name"`
 	Text   string `json:"text"`
-	Id     string `json:"id"`
-	Length int    `json:"length"`
+	Id     int32  `json:"id"`
+	Length int32  `json:"length"`
 }
 
 type DocumentMetadata struct {
 	Name   string `json:"name"`
-	Id     string `json:"id"`
-	Length int    `json:"length"`
+	Id     int32  `json:"id"`
+	Length int32  `json:"length"`
 }
 
 type Query struct {
