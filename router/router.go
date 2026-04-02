@@ -3,6 +3,7 @@ package router
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"rigidsearch/constants"
@@ -90,7 +91,12 @@ func NewRouter() http.Handler {
 	})
 	r.Delete("/documents/{documentId}", func(w http.ResponseWriter, r *http.Request) {
 		docId := chi.URLParam(r, "documentId")
-		err := indexing.DeleteDocument(docId)
+		docIdInt, err := strconv.Atoi(docId)
+		if err != nil {
+			returnError(w, fmt.Errorf("Invalid document id"), http.StatusBadRequest)
+			return
+		}
+		err = indexing.DeleteDocument(docIdInt)
 		if err != nil {
 			returnError(w, err, http.StatusInternalServerError)
 			return
@@ -99,11 +105,17 @@ func NewRouter() http.Handler {
 	})
 	r.Get("/documents/{documentId}", func(w http.ResponseWriter, r *http.Request) {
 		docId := chi.URLParam(r, "documentId")
+		docIdI32, err := GetDocIdInt32(docId)
+		if err != nil {
+			returnError(w, fmt.Errorf("invalid document id"), http.StatusBadRequest)
+			return
+		}
 		bytes, err := os.ReadFile(fmt.Sprintf("%s/%s", constants.STORAGE_LOC, docId))
 		if err != nil {
 			returnError(w, err, http.StatusInternalServerError)
 		}
-		docMetadata := indexing.GlobalSearchIndex.DocMetadataMap[docId]
+
+		docMetadata := indexing.GlobalSearchIndex.Index.DocMetadataMap[docIdI32]
 		result := map[string]interface{}{
 			"name": docMetadata.Name,
 			"text": string(bytes),
@@ -116,4 +128,15 @@ func NewRouter() http.Handler {
 		w.Write(resp)
 	})
 	return r
+}
+
+func GetDocIdInt32(docId string) (int32, error) {
+	docIdInt, err := strconv.Atoi(docId)
+	if err != nil {
+		return -1, err
+	}
+	if docIdInt > math.MaxInt32 || docIdInt < math.MinInt32 {
+		return -1, fmt.Errorf("invalid document id")
+	}
+	return int32(docIdInt), nil
 }

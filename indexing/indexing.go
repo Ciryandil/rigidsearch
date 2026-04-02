@@ -2,6 +2,7 @@ package indexing
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"rigidsearch/constants"
 	"rigidsearch/data_models"
@@ -74,10 +75,15 @@ func IndexDocument(document data_models.Document) (int32, error) {
 	return docId, nil
 }
 
-func DeleteDocument(documentId int32) error {
+func DeleteDocument(documentId int) error {
+	if documentId > math.MaxInt32 || documentId < math.MinInt32 {
+		return fmt.Errorf("invalid document id")
+	}
+	documentIdI32 := int32(documentId)
 	GlobalSearchIndex.Lock.Lock()
 	defer GlobalSearchIndex.Lock.Unlock()
-	GlobalSearchIndex.Index.DeletedDocs[documentId] = struct{}{}
+	delete(GlobalSearchIndex.Index.DocMetadataMap, documentIdI32)
+	GlobalSearchIndex.Index.DeletedDocs[documentIdI32] = struct{}{}
 
 	err := os.Remove(fmt.Sprintf("%s/%d", constants.STORAGE_LOC, documentId))
 	return err

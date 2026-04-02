@@ -27,42 +27,44 @@ func Bm25Search(query data_models.Query) ([]data_models.SearchResult, error) {
 	if query.NumResults == 0 {
 		query.NumResults = 5
 	}
-	if len(indexing.GlobalSearchIndex.DocMetadataMap) == 0 {
+	if len(indexing.GlobalSearchIndex.Index.DocMetadataMap) == 0 {
 		return nil, fmt.Errorf("no documents in index")
 	}
-	totalDocs := float64(len(indexing.GlobalSearchIndex.DocMetadataMap))
-	docsMap := make(map[string]float64)
+	totalDocs := float64(len(indexing.GlobalSearchIndex.Index.DocMetadataMap))
+	docsMap := make(map[int32]float64)
 	indexing.GlobalSearchIndex.Lock.RLock()
 	defer indexing.GlobalSearchIndex.Lock.RUnlock()
 	averageDocLength := 0.0
-	for _, doc := range indexing.GlobalSearchIndex.DocMetadataMap {
+	for _, doc := range indexing.GlobalSearchIndex.Index.DocMetadataMap {
 		averageDocLength += float64(doc.Length)
 	}
-	averageDocLength /= float64(len(indexing.GlobalSearchIndex.DocMetadataMap))
+	averageDocLength /= float64(len(indexing.GlobalSearchIndex.Index.DocMetadataMap))
 	for _, term := range finalQueryTerms {
-		freqData, ok := indexing.GlobalSearchIndex.WordFrequencyMap[term]
+		termIndex, ok := indexing.GlobalSearchIndex.Index.TermIndex[term]
 		if !ok {
 			continue
 		}
-		var docFreq int
-		docFreqData := indexing.GlobalSearchIndex.WordToDocMap[term]
-		if docFreqData != nil {
-			docFreq = len(docFreqData.DocSet)
+		termInfo := indexing.GlobalSearchIndex.Index.Terms[termIndex]
+		if termInfo == nil {
+			continue
 		}
+
+		docFreq := termInfo.DocFrequency
+
 		inverseDocFrequency := (totalDocs-float64(docFreq)+0.5)/(float64(docFreq)+0.5) + 1
 		fmt.Println("Term: ", term, " idf before log: ", inverseDocFrequency)
 		inverseDocFrequency = math.Log(inverseDocFrequency)
-		for docId, freq := range freqData.FrequencyMap {
-			docMetadata := indexing.GlobalSearchIndex.DocMetadataMap[docId]
+		for _, posting := range termInfo.Postings {
+			docMetadata := indexing.GlobalSearchIndex.Index.DocMetadataMap[posting.DocId]
 			docLength := docMetadata.Length
 			if docLength == 0 {
 				continue
 			}
-			termFreq := (float64(freq) * (k1 + 1)) / (float64(freq) + k1*(1-b+b*(float64(docLength)/averageDocLength)))
+			termFreq := (float64(posting.Tf) * (k1 + 1)) / (float64(posting.Tf) + k1*(1-b+b*(float64(docLength)/averageDocLength)))
 			score := termFreq * inverseDocFrequency
 			fmt.Println("Term: ", term, " score: ", score)
 
-			docsMap[docId] += score
+			docsMap[posting.DocId] += score
 		}
 	}
 
@@ -80,7 +82,7 @@ func Bm25Search(query data_models.Query) ([]data_models.SearchResult, error) {
 		if resPtr == nil {
 			break
 		}
-		docData := indexing.GlobalSearchIndex.DocMetadataMap[resPtr.DocId]
+		docData := indexing.GlobalSearchIndex.Index.DocMetadataMap[resPtr.DocId]
 		topResults = append(topResults, data_models.SearchResult{DocId: docData.Id, Name: docData.Name, Score: resPtr.Score})
 	}
 	return topResults, nil

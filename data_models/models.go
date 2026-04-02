@@ -19,12 +19,12 @@ type Query struct {
 }
 
 type SearchResult struct {
-	DocId string  `json:"id"`
+	DocId int32   `json:"id"`
 	Name  string  `json:"name"`
 	Score float64 `json:"score"`
 }
 
 type IntermediateResult struct {
-	DocId string
+	DocId int32
 	Score float64
 }

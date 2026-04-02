@@ -25,34 +25,39 @@ func TfIdfSearch(query data_models.Query) ([]data_models.SearchResult, error) {
 	if query.NumResults == 0 {
 		query.NumResults = 5
 	}
-	idfNom := float64(len(indexing.GlobalSearchIndex.DocMetadataMap))
-	docsMap := make(map[string]float64)
+	idfNom := float64(len(indexing.GlobalSearchIndex.Index.DocMetadataMap))
+	docsMap := make(map[int32]float64)
 	indexing.GlobalSearchIndex.Lock.RLock()
 	defer indexing.GlobalSearchIndex.Lock.RUnlock()
 	for _, term := range finalQueryTerms {
-		freqData, ok := indexing.GlobalSearchIndex.WordFrequencyMap[term]
+		termIndex, ok := indexing.GlobalSearchIndex.Index.TermIndex[term]
 		if !ok {
 			continue
 		}
-		var docFreq int
-		docFreqData := indexing.GlobalSearchIndex.WordToDocMap[term]
-		if docFreqData != nil {
-			docFreq = len(docFreqData.DocSet)
+		termInfo := indexing.GlobalSearchIndex.Index.Terms[termIndex]
+		if termInfo == nil {
+			continue
 		}
+
+		docFreq := termInfo.DocFrequency
 		inverseDocFrequency := idfNom/(float64(docFreq)+1) + 1
 		fmt.Println("Term: ", term, " idf before log: ", inverseDocFrequency)
 		inverseDocFrequency = math.Log(inverseDocFrequency)
-		for docId, freq := range freqData.FrequencyMap {
-			docMetadata := indexing.GlobalSearchIndex.DocMetadataMap[docId]
+		for _, posting := range termInfo.Postings {
+			_, deleted := indexing.GlobalSearchIndex.Index.DeletedDocs[posting.DocId]
+			if deleted {
+				continue
+			}
+			docMetadata := indexing.GlobalSearchIndex.Index.DocMetadataMap[posting.DocId]
 			docLength := docMetadata.Length
 			if docLength == 0 {
 				continue
 			}
-			termFreq := float64(freq) / float64(docLength)
+			termFreq := float64(posting.Tf) / float64(docLength)
 			score := termFreq * inverseDocFrequency
 			fmt.Println("Term: ", term, " score: ", score)
 
-			docsMap[docId] += score
+			docsMap[posting.DocId] += score
 		}
 	}
 
@@ -70,7 +75,7 @@ func TfIdfSearch(query data_models.Query) ([]data_models.SearchResult, error) {
 		if resPtr == nil {
 			break
 		}
-		docData := indexing.GlobalSearchIndex.DocMetadataMap[resPtr.DocId]
+		docData := indexing.GlobalSearchIndex.Index.DocMetadataMap[resPtr.DocId]
 		topResults = append(topResults, data_models.SearchResult{DocId: docData.Id, Name: docData.Name, Score: resPtr.Score})
 	}
 	return topResults, nil
